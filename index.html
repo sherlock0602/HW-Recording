@@ -86,7 +86,13 @@
 
         audioChunks = [];
         try {
-            const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+            const stream = await navigator.mediaDevices.getUserMedia({ 
+    audio: {
+        echoCancellation: false,  // 關閉回音消除
+        noiseSuppression: false,  // 關閉降噪 (這樣才錄得到敲擊聲！)
+        autoGainControl: false    // 關閉自動音量調整
+    } 
+});
             
             // 自動偵測瀏覽器支援的最佳格式 (解決蘋果/安卓/微軟的差異)
             let options = {};
