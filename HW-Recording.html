@@ -1,0 +1,178 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title> 錄音作業 </title>
+    <style>
+        body { font-family: "Microsoft JhengHei", sans-serif; text-align: center; padding: 20px; background-color: #eef2f3; }
+        .container { background: white; padding: 30px; border-radius: 20px; box-shadow: 0 10px 25px rgba(0,0,0,0.1); display: inline-block; max-width: 400px; width: 90%; }
+        h2 { color: #2c3e50; margin-bottom: 20px; }
+        .input-group { margin-bottom: 15px; text-align: left; }
+        label { display: block; margin-bottom: 5px; font-weight: bold; color: #555; }
+        input { width: 100%; padding: 10px; box-sizing: border-box; border: 1px solid #ddd; border-radius: 8px; font-size: 16px; }
+        
+        .btn-box { margin-top: 20px; }
+        button { font-size: 18px; padding: 12px 24px; margin: 10px 5px; cursor: pointer; border-radius: 30px; border: none; transition: 0.3s; font-weight: bold; }
+        
+        #recordBtn { background-color: #eb4d4b; color: white; }
+        #recordBtn:disabled { background-color: #ccc; cursor: not-allowed; }
+        
+        #stopBtn { background-color: #130f40; color: white; }
+        #stopBtn:disabled { background-color: #ccc; cursor: not-allowed; }
+        
+        #uploadBtn { 
+            display: none; margin-top: 20px; background-color: #27ae60; 
+            color: white; width: 100%; padding: 15px; border-radius: 30px;
+        }
+        #uploadBtn:disabled { background-color: #95a5a6; cursor: wait; }
+
+        #status { margin: 20px 0; padding: 10px; border-radius: 8px; background: #f9f9f9; color: #666; font-size: 15px; font-weight: bold; }
+        audio { margin-top: 15px; width: 100%; border-radius: 5px; }
+    </style>
+</head>
+<body>
+
+<div class="container">
+    <h2>📖 樹林國小六年級 課文朗讀作業</h2>
+    
+    <div class="input-group">
+        <label for="stuNum">座號：</label>
+        <input type="number" id="stuNum" placeholder="例如：01" min="1" max="50">
+    </div>
+    <div class="input-group">
+        <label for="stuName">姓名：</label>
+        <input type="text" id="stuName" placeholder="請輸入姓名">
+    </div>
+
+    <hr style="border: 0.5px solid #eee; margin: 20px 0;">
+
+    <div class="btn-box">
+        <button id="recordBtn">🔴 開始錄音</button>
+        <button id="stopBtn" disabled>⏹️ 停止錄音</button>
+    </div>
+    
+    <div id="status">💡 請先填寫座號姓名，再點擊開始錄音</div>
+    
+    <audio id="audioPlayback" controls></audio>
+    
+    <button id="uploadBtn">☁️ 上傳到老師的雲端硬碟</button>
+</div>
+
+<script>
+    // ==========================================
+    // ⚠️ 請將下方引號內的網址，換成您自己的 Web App URL
+    // ==========================================
+    const GAS_URL = "https://script.google.com/macros/s/AKfycbzE3E0yMB7FvxjMz8q_0x4eZ0xz5l99p7ALzVtwqceNLUhoPcknHdXMUdCIrHajrVuR/exec"; 
+
+    let mediaRecorder;
+    let audioChunks = [];
+    let recordedBlob = null;
+
+    const recordBtn = document.getElementById('recordBtn');
+    const stopBtn = document.getElementById('stopBtn');
+    const uploadBtn = document.getElementById('uploadBtn');
+    const status = document.getElementById('status');
+    const audioPlayback = document.getElementById('audioPlayback');
+    const stuNum = document.getElementById('stuNum');
+    const stuName = document.getElementById('stuName');
+
+    // --- 1. 錄音功能 ---
+    recordBtn.onclick = async () => {
+        if (!stuNum.value || !stuName.value) {
+            alert("請先填寫座號與姓名喔！");
+            return;
+        }
+
+        audioChunks = [];
+        try {
+            const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+            mediaRecorder = new MediaRecorder(stream);
+            mediaRecorder.start();
+
+            status.innerText = "🔴 正在錄音中... 念完請按停止";
+            status.style.color = "#eb4d4b";
+            recordBtn.disabled = true;
+            stopBtn.disabled = false;
+            uploadBtn.style.display = "none";
+        } catch (err) {
+            alert("無法開啟麥克風，請檢查瀏覽器是否允許麥克風權限。");
+        }
+
+        mediaRecorder.ondataavailable = (event) => {
+            audioChunks.push(event.data);
+        };
+
+        mediaRecorder.onstop = () => {
+            recordedBlob = new Blob(audioChunks, { type: 'audio/webm' });
+            const audioUrl = URL.createObjectURL(recordedBlob);
+            
+            audioPlayback.src = audioUrl;
+            uploadBtn.style.display = "block"; // 顯示上傳按鈕
+            
+            status.innerText = "✅ 錄音完成！請先點擊播放鍵試聽，確認聲音清楚後再點擊「上傳」。";
+            status.style.color = "#27ae60";
+        };
+    };
+
+    // --- 2. 停止錄音功能 ---
+    stopBtn.onclick = () => {
+        mediaRecorder.stop();
+        recordBtn.disabled = false;
+        stopBtn.disabled = true;
+    };
+
+    // --- 3. 雲端上傳功能 ---
+    uploadBtn.onclick = () => {
+        if (!recordedBlob) return;
+        if (GAS_URL === "在此貼上您部署Google Apps Script後得到的網址") {
+            alert("老師尚未設定雲端硬碟網址，無法上傳！");
+            return;
+        }
+
+        status.innerText = "⏳ 正在上傳中，請不要關閉網頁...";
+        status.style.color = "#2980b9";
+        uploadBtn.disabled = true;
+        uploadBtn.innerText = "上傳中...";
+
+        // 取得當前日期 (YYYYMMDD)
+        const now = new Date();
+        const dateStr = `${now.getFullYear()}${String(now.getMonth() + 1).padStart(2, '0')}${String(now.getDate()).padStart(2, '0')}`;
+        // 組合檔名：座號_姓名_日期.webm
+        const fileName = `${stuNum.value}_${stuName.value}_${dateStr}.webm`;
+
+        // 將音檔轉換為 Base64 文字格式以利傳輸
+        const reader = new FileReader();
+        reader.readAsDataURL(recordedBlob);
+        reader.onloadend = () => {
+            const base64Data = reader.result.split(',')[1]; 
+
+            // 打包要傳送的資料
+            const formData = new URLSearchParams();
+            formData.append('filename', fileName);
+            formData.append('fileData', base64Data);
+
+            // 發送至 Google Apps Script
+            fetch(GAS_URL, {
+                method: 'POST',
+                body: formData
+            })
+            .then(response => response.text())
+            .then(result => {
+                status.innerText = "🎉 上傳成功！作業已經順利繳交囉。";
+                status.style.color = "#27ae60";
+                uploadBtn.style.display = "none"; // 隱藏按鈕防重複點擊
+                uploadBtn.innerText = "☁️ 上傳到老師的雲端硬碟";
+            })
+            .catch(error => {
+                status.innerText = "❌ 上傳失敗，請檢查網路連線後再試一次。";
+                status.style.color = "#eb4d4b";
+                uploadBtn.disabled = false;
+                uploadBtn.innerText = "重新上傳";
+            });
+        };
+    };
+</script>
+
+</body>
+</html>
