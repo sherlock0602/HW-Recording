@@ -34,7 +34,7 @@
 <body>
 
 <div class="container">
-    <h2>📖 樹林國小六年級 課文朗讀作業</h2>
+    <h2>📖 朗讀作業</h2>
     
     <div class="input-group">
         <label for="stuNum">座號：</label>
@@ -104,7 +104,7 @@
         };
 
         mediaRecorder.onstop = () => {
-            recordedBlob = new Blob(audioChunks, { type: 'audio/webm' });
+            recordedBlob = new Blob(audioChunks); // 拿掉強制格式，讓蘋果或微軟設備自動適應
             const audioUrl = URL.createObjectURL(recordedBlob);
             
             audioPlayback.src = audioUrl;
@@ -152,20 +152,29 @@
             formData.append('filename', fileName);
             formData.append('fileData', base64Data);
 
-            // 發送至 Google Apps Script
+// 發送至 Google Apps Script
             fetch(GAS_URL, {
                 method: 'POST',
                 body: formData
             })
             .then(response => response.text())
             .then(result => {
-                status.innerText = "🎉 上傳成功！作業已經順利繳交囉。";
-                status.style.color = "#27ae60";
-                uploadBtn.style.display = "none"; // 隱藏按鈕防重複點擊
-                uploadBtn.innerText = "☁️ 上傳到老師的雲端硬碟";
+                // 檢查回傳的文字是否包含"成功"
+                if (result.includes("成功")) {
+                    status.innerText = "🎉 上傳成功！作業已經順利繳交囉。";
+                    status.style.color = "#27ae60";
+                    uploadBtn.style.display = "none"; // 隱藏按鈕防重複點擊
+                    uploadBtn.innerText = "☁️ 上傳到老師的雲端硬碟";
+                } else {
+                    // 如果失敗，就把 GAS 丟回來的真實錯誤訊息顯示出來
+                    status.innerText = "❌ " + result; 
+                    status.style.color = "#eb4d4b";
+                    uploadBtn.disabled = false;
+                    uploadBtn.innerText = "重新上傳";
+                }
             })
             .catch(error => {
-                status.innerText = "❌ 上傳失敗，請檢查網路連線後再試一次。";
+                status.innerText = "❌ 網路連線發生問題，請稍後再試。";
                 status.style.color = "#eb4d4b";
                 uploadBtn.disabled = false;
                 uploadBtn.innerText = "重新上傳";
