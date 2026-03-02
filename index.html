@@ -77,7 +77,7 @@
     const stuNum = document.getElementById('stuNum');
     const stuName = document.getElementById('stuName');
 
-    // --- 1. 錄音功能 ---
+// --- 1. 錄音功能 (增強版) ---
     recordBtn.onclick = async () => {
         if (!stuNum.value || !stuName.value) {
             alert("請先填寫座號與姓名喔！");
@@ -87,8 +87,19 @@
         audioChunks = [];
         try {
             const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-            mediaRecorder = new MediaRecorder(stream);
-            mediaRecorder.start();
+            
+            // 自動偵測瀏覽器支援的最佳格式 (解決蘋果/安卓/微軟的差異)
+            let options = {};
+            if (MediaRecorder.isTypeSupported('audio/webm;codecs=opus')) {
+                options = { mimeType: 'audio/webm;codecs=opus' }; // Chrome / Edge 首選
+            } else if (MediaRecorder.isTypeSupported('audio/mp4')) {
+                options = { mimeType: 'audio/mp4' }; // Safari / iOS 首選
+            }
+
+            mediaRecorder = new MediaRecorder(stream, options);
+            
+            // 💡 關鍵修改：每 250 毫秒就收集一次音訊，防止錄到一半斷線或遺失
+            mediaRecorder.start(250);
 
             status.innerText = "🔴 正在錄音中... 念完請按停止";
             status.style.color = "#eb4d4b";
@@ -100,21 +111,24 @@
         }
 
         mediaRecorder.ondataavailable = (event) => {
-            audioChunks.push(event.data);
+            if (event.data && event.data.size > 0) {
+                audioChunks.push(event.data);
+            }
         };
 
         mediaRecorder.onstop = () => {
-            recordedBlob = new Blob(audioChunks); // 拿掉強制格式，讓蘋果或微軟設備自動適應
+            // 使用系統偵測到的格式來打包檔案
+            const mimeType = mediaRecorder.mimeType || 'audio/webm';
+            recordedBlob = new Blob(audioChunks, { type: mimeType }); 
             const audioUrl = URL.createObjectURL(recordedBlob);
             
             audioPlayback.src = audioUrl;
-            uploadBtn.style.display = "block"; // 顯示上傳按鈕
+            uploadBtn.style.display = "block"; 
             
             status.innerText = "✅ 錄音完成！請先點擊播放鍵試聽，確認聲音清楚後再點擊「上傳」。";
             status.style.color = "#27ae60";
         };
     };
-
     // --- 2. 停止錄音功能 ---
     stopBtn.onclick = () => {
         mediaRecorder.stop();
